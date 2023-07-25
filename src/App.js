@@ -24,30 +24,41 @@ function Board({ xIsNext, squares, onPlay }) {
 
   const winner = calculateWinner(squares);
   let status;
+  let winningSquares = [];
   if (winner) {
-    status = 'Winner: ' + winner;
+    status = 'Winner: ' + squares[winner[0]];
+    winningSquares = winner;
+  } else if (squares.every((square) => square !== null)) {
+    status = 'It\'s a draw!';
   } else {
     status = 'Next player: ' + (xIsNext ? 'X' : 'O');
+  }
+
+  function renderSquare(i) {
+    const isWinningSquare = winningSquares && winningSquares.includes(i);
+    return (
+      <Square
+        value={squares[i]}
+        onSquareClick={() => handleClick(i)}
+        className={isWinningSquare ? 'winning-square' : 'square'}
+      />
+    );
+  }
+
+  // Create the rows and columns using loops
+  const rows = [];
+  for (let row = 0; row < 3; row++) {
+    const cols = [];
+    for (let col = 0; col < 3; col++) {
+      cols.push(renderSquare(row * 3 + col));
+    }
+    rows.push(<div key={row} className="board-row">{cols}</div>);
   }
 
   return (
     <>
       <div className="status">{status}</div>
-      <div className="board-row">
-        <Square value={squares[0]} onSquareClick={() => handleClick(0)} />
-        <Square value={squares[1]} onSquareClick={() => handleClick(1)} />
-        <Square value={squares[2]} onSquareClick={() => handleClick(2)} />
-      </div>
-      <div className="board-row">
-        <Square value={squares[3]} onSquareClick={() => handleClick(3)} />
-        <Square value={squares[4]} onSquareClick={() => handleClick(4)} />
-        <Square value={squares[5]} onSquareClick={() => handleClick(5)} />
-      </div>
-      <div className="board-row">
-        <Square value={squares[6]} onSquareClick={() => handleClick(6)} />
-        <Square value={squares[7]} onSquareClick={() => handleClick(7)} />
-        <Square value={squares[8]} onSquareClick={() => handleClick(8)} />
-      </div>
+      {rows}
     </>
   );
 }
@@ -58,6 +69,23 @@ export default function Game() {
   const [currentMove, setCurrentMove] = useState(0);
   const xIsNext = currentMove % 2 === 0;
   const currentSquares = history[currentMove];
+  const [isAscending, setIsAscending] = useState(true);
+
+
+  function handleSortToggle() {
+    setIsAscending((prevIsAscending) => !prevIsAscending);
+
+    if (isAscending) {
+      // If we are switching from ascending to descending,
+      // we need to update the currentMove to reflect the correct move index.
+      setCurrentMove(history.length - 1 - currentMove);
+    } else {
+      // If we are switching from descending to ascending,
+      // we need to update the currentMove to the maximum available move.
+      setCurrentMove(history.length - 1);
+    }
+  }
+
 
   function handlePlay(nextSquares) {
     const nextHistory = [...history.slice(0, currentMove + 1), nextSquares];
@@ -69,20 +97,31 @@ export default function Game() {
     setCurrentMove(nextMove);
   }
 
-  const moves = history.map((squares, move) => {
-    let description;
-    if (move > 0) {
-      description = "Go to move #" + move;
-    } else {
-      description = "Go to game start";
-    }
-
-    return (
-      <li key={move}>
-        <button onClick={() => jumpTo(move)}>{description}</button>
-      </li>
-    )
-  })
+  const moves = isAscending
+    ? history.map((squares, move) => {
+      const step = move === 0 ? "game start" : `step ${move}`;
+      return (
+        <li key={move}>
+          {move === currentMove && move > 0 ? (
+            <span>You are at {step}</span>
+          ) : (
+            <button onClick={() => jumpTo(move)}>Go to {step}</button>
+          )}
+        </li>
+      );
+    })
+    : history.slice().reverse().map((squares, move) => {
+      const step = move === history.length - 1 ? "game start" : `step ${history.length - 1 - move}`;
+      return (
+        <li key={move}>
+          {move === currentMove && move < history.length - 1 ? (
+            <span>You are at {step}</span>
+          ) : (
+            <button onClick={() => jumpTo(history.length - 1 - move)}>Go to {step}</button>
+          )}
+        </li>
+      );
+    });
 
   return (
     <div className="game">
@@ -90,6 +129,11 @@ export default function Game() {
         <Board xIsNext={xIsNext} squares={currentSquares} onPlay={handlePlay} />
       </div>
       <div className="game-info">
+        <div>
+          <button onClick={handleSortToggle}>
+            {isAscending ? "Sort Descending" : "Sort Ascending"}
+          </button>
+        </div>
         <ol>{moves}</ol>
       </div>
     </div>
@@ -108,10 +152,11 @@ function calculateWinner(squares) {
     [0, 4, 8],
     [2, 4, 6]
   ];
-  for (let i = 0; i < lines.length; i++) {
-    const [a, b, c] = lines[i];
+  for (const line of lines) {
+    const [a, b, c] = line;
     if (squares[a] && squares[a] === squares[b] && squares[a] === squares[c]) {
-      return squares[a];
+      // Return the winning squares instead of the winning value
+      return [a, b, c];
     }
   }
   return null;
